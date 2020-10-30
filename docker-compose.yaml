@@ -1,0 +1,44 @@
+version: '3.7'
+
+services:
+  web:
+    build: 
+        context: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/usr/src/app/
+    ports:
+      - 8000:8000
+    env_file:
+      - ./env.json      
+  redis:
+    image: "redis:alpine"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    # command: > 
+    #      sh -c "redis-server --replica-read-only no
+    #      && redis-server --stop-writes-on-bgsave-error no
+    #      &&  redis-server --bind 0.0.0.0
+    #      &&  redis-server --slaveof no one
+    #      &&  redis-server --protected-mode yes"
+    restart: always
+    expose:
+        - '6379'
+    ports:
+        - "6379:6379"
+    volumes:
+        - $PWD/redis-data:/var/lib/redis
+        - $PWD/redis.conf:/usr/local/etc/redis/redis.conf
+  worker:
+    build: 
+      context: .
+    image: worker:latest
+    environment: 
+      - DJANGO_SETTINGS_MODULE=swap_backend.settings
+      - LC_ALL="en_US.UTF-8"
+      - LC_CTYPE="en_US.UTF-8"
+    command: rq worker --url redis://redis:6379
+    depends_on:
+      - redis
+    links:
+      - redis
+
